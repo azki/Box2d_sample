@@ -8,11 +8,14 @@ import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.joints.MouseJoint;
+import com.badlogic.gdx.physics.box2d.joints.MouseJointDef;
 
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
+import org.andengine.entity.IEntity;
 import org.andengine.entity.primitive.Rectangle;
 import org.andengine.entity.scene.IOnAreaTouchListener;
 import org.andengine.entity.scene.IOnSceneTouchListener;
@@ -25,6 +28,7 @@ import org.andengine.extension.physics.box2d.PhysicsConnector;
 import org.andengine.extension.physics.box2d.PhysicsFactory;
 import org.andengine.extension.physics.box2d.PhysicsWorld;
 import org.andengine.extension.physics.box2d.util.Vector2Pool;
+import org.andengine.extension.physics.box2d.util.constants.PhysicsConstants;
 import org.andengine.input.sensor.acceleration.AccelerationData;
 import org.andengine.input.sensor.acceleration.IAccelerationListener;
 import org.andengine.input.touch.TouchEvent;
@@ -45,8 +49,6 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     // ===========================================================
     // Constants
     // ===========================================================
-    private static final int CAMERA_WIDTH = 480;
-    private static final int CAMERA_HEIGHT = 720;
     private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
 
     private BitmapTextureAtlas mBitmapTextureAtlas;
@@ -55,11 +57,11 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     private TiledTextureRegion mTriangleFaceTextureRegion;
     private TiledTextureRegion mHexagonFaceTextureRegion;
 
-
-    private int mSpriteCount = 0;
     private int mTouchCount = 0;
 
     private PhysicsWorld mPhysicsWorld;
+    private MouseJoint mMouseJointActive;
+    private Body mGroundBody;
 
     private float mGravityX;
     private float mGravityY;
@@ -72,10 +74,9 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     public EngineOptions onCreateEngineOptions() {
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-//        cameraWidth = displayMetrics.widthPixels;
-//        cameraHeight = displayMetrics.heightPixels;
-        cameraWidth = CAMERA_WIDTH;
-        cameraHeight = CAMERA_HEIGHT;
+        int cameraZoom = 2;
+        cameraWidth = displayMetrics.widthPixels / cameraZoom;
+        cameraHeight = displayMetrics.heightPixels / cameraZoom;
         final Camera camera = new Camera(0, 0, cameraWidth, cameraHeight);
 
         return new EngineOptions(true, ScreenOrientation.PORTRAIT_FIXED, new RatioResolutionPolicy(cameraWidth, cameraHeight), camera);
@@ -91,14 +92,6 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
         this.mTriangleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_triangle_tiled.png", 0, 64, 2, 1); // 64x32
         this.mHexagonFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_hexagon_tiled.png", 0, 96, 2, 1); // 64x32
         this.mBitmapTextureAtlas.load();
-
-//        this.mBoxFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_box_tiled.png", TextureOptions.BILINEAR);
-//        this.mBoxFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(this.mBoxFaceTexture, 2, 1);
-//        this.mBoxFaceTexture.load();
-//
-//        this.mCircleFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_circle_tiled.png", TextureOptions.BILINEAR);
-//        this.mCircleFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(this.mCircleFaceTexture, 2, 1);
-//        this.mCircleFaceTexture.load();
     }
 
     @Override
@@ -106,6 +99,7 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
         this.mEngine.registerUpdateHandler(new FPSLogger());
 
         this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
+        this.mGroundBody = this.mPhysicsWorld.createBody(new BodyDef());
 
         this.mScene = new Scene();
         this.mScene.getBackground().setColor(Color.BLACK);
@@ -136,22 +130,52 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     }
 
     @Override
+    public void onGameCreated() {
+        this.mEngine.enableVibrator(this);
+    }
+
+    @Override
     public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final ITouchArea pTouchArea, final float pTouchAreaLocalX, final float pTouchAreaLocalY) {
-        final AnimatedSprite face = (AnimatedSprite) pTouchArea;
-        this.jumpFace(face);
-        return true;
+        if (pSceneTouchEvent.isActionDown()) {
+            final IEntity entity = (IEntity) pTouchArea;
+            /*
+             * If we have a active MouseJoint, we are just moving it around
+			 * instead of creating a second one.
+			 */
+            if (this.mMouseJointActive == null) {
+                this.mEngine.vibrate(100);
+                this.mMouseJointActive = this.createMouseJoint(entity, pTouchAreaLocalX, pTouchAreaLocalY);
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean onSceneTouchEvent(final Scene pScene, final TouchEvent pSceneTouchEvent) {
         if (this.mPhysicsWorld != null) {
-            if (pSceneTouchEvent.isActionDown()) {
-                mTouchCount++;
-            }
+            switch (pSceneTouchEvent.getAction()) {
+                case TouchEvent.ACTION_DOWN:
+                    this.mTouchCount++;
 
-            AnimatedSprite animatedSprite = this.addFace(pSceneTouchEvent.getX(), pSceneTouchEvent.getY());
-            this.jumpFace(animatedSprite);
-            return true;
+                    this.addFace(pSceneTouchEvent.getX(), pSceneTouchEvent.getY());
+                    return true;
+                case TouchEvent.ACTION_MOVE:
+                    if (this.mMouseJointActive != null) {
+                        final Vector2 vec = Vector2Pool.obtain(pSceneTouchEvent.getX() / PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT, pSceneTouchEvent.getY() / PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT);
+                        this.mMouseJointActive.setTarget(vec);
+                        Vector2Pool.recycle(vec);
+                    } else {
+                        this.addFace(pSceneTouchEvent.getX(), pSceneTouchEvent.getY());
+                    }
+                    return true;
+                case TouchEvent.ACTION_UP:
+                    if (this.mMouseJointActive != null) {
+                        this.mPhysicsWorld.destroyJoint(this.mMouseJointActive);
+                        this.mMouseJointActive = null;
+                    }
+                    return true;
+            }
         }
         return false;
     }
@@ -188,24 +212,42 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     // Methods
     // ===========================================================
 
-    private AnimatedSprite addFace(final float pX, final float pY) {
-        this.mSpriteCount++;
+    public MouseJoint createMouseJoint(final IEntity pFace, final float pTouchAreaLocalX, final float pTouchAreaLocalY) {
+        final Body body = (Body) pFace.getUserData();
+        final MouseJointDef mouseJointDef = new MouseJointDef();
 
+        final Vector2 localPoint = Vector2Pool.obtain((pTouchAreaLocalX - pFace.getWidth() * 0.5f) / PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT, (pTouchAreaLocalY - pFace.getHeight() * 0.5f) / PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT);
+        this.mGroundBody.setTransform(localPoint, 0);
+
+        mouseJointDef.bodyA = this.mGroundBody;
+        mouseJointDef.bodyB = body;
+        mouseJointDef.dampingRatio = 0.95f;
+        mouseJointDef.frequencyHz = 30;
+        mouseJointDef.maxForce = (200.0f * body.getMass());
+        mouseJointDef.collideConnected = true;
+
+        mouseJointDef.target.set(body.getWorldPoint(localPoint));
+        Vector2Pool.recycle(localPoint);
+
+        return (MouseJoint) this.mPhysicsWorld.createJoint(mouseJointDef);
+    }
+
+    private AnimatedSprite addFace(final float pX, final float pY) {
         final AnimatedSprite animatedSprite;
         final Body body;
 
         if (this.mTouchCount % 4 == 1) {
             animatedSprite = new AnimatedSprite(pX, pY, this.mBoxFaceTextureRegion, this.getVertexBufferObjectManager());
-            body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyDef.BodyType.DynamicBody, FIXTURE_DEF);
+            body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         } else if (this.mTouchCount % 4 == 2) {
             animatedSprite = new AnimatedSprite(pX, pY, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
-            body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyDef.BodyType.DynamicBody, FIXTURE_DEF);
+            body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         } else if (this.mTouchCount % 4 == 3) {
             animatedSprite = new AnimatedSprite(pX, pY, this.mHexagonFaceTextureRegion, this.getVertexBufferObjectManager());
-            body = createHexagonBody(this.mPhysicsWorld, animatedSprite, BodyDef.BodyType.DynamicBody, FIXTURE_DEF);
+            body = createHexagonBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         } else {
             animatedSprite = new AnimatedSprite(pX, pY, this.mTriangleFaceTextureRegion, this.getVertexBufferObjectManager());
-            body = createTriangleBody(this.mPhysicsWorld, animatedSprite, BodyDef.BodyType.DynamicBody, FIXTURE_DEF);
+            body = createTriangleBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         }
 
         this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(animatedSprite, body, true, true));
