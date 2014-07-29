@@ -24,6 +24,7 @@ import org.andengine.entity.scene.Scene;
 import org.andengine.entity.shape.IShape;
 import org.andengine.entity.sprite.AnimatedSprite;
 import org.andengine.entity.util.FPSLogger;
+import org.andengine.extension.debugdraw.DebugRenderer;
 import org.andengine.extension.physics.box2d.PhysicsConnector;
 import org.andengine.extension.physics.box2d.PhysicsFactory;
 import org.andengine.extension.physics.box2d.PhysicsWorld;
@@ -32,9 +33,7 @@ import org.andengine.extension.physics.box2d.util.constants.PhysicsConstants;
 import org.andengine.input.sensor.acceleration.AccelerationData;
 import org.andengine.input.sensor.acceleration.IAccelerationListener;
 import org.andengine.input.touch.TouchEvent;
-import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
-import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.texture.bitmap.AssetBitmapTexture;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
@@ -116,6 +115,9 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
         this.mScene = new Scene();
         this.mScene.getBackground().setColor(Color.BLACK);
         this.mScene.setOnSceneTouchListener(this);
+
+        DebugRenderer debug = new DebugRenderer(mPhysicsWorld, getVertexBufferObjectManager());
+        this.mScene.attachChild(debug);
 
         final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
         final Rectangle ground = new Rectangle(cameraWidth / 2, 1, cameraWidth, 2, vertexBufferObjectManager);
