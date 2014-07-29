@@ -255,7 +255,7 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
             body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         } else if (this.mTouchCount % 4 == 2) {
             animatedSprite = new AnimatedSprite(pX, pY, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
-            body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
+            body = PhysicsFactory.createCircleBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
         } else if (this.mTouchCount % 4 == 3) {
             animatedSprite = new AnimatedSprite(pX, pY, this.mHexagonFaceTextureRegion, this.getVertexBufferObjectManager());
             body = createHexagonBody(this.mPhysicsWorld, animatedSprite, BodyType.DynamicBody, FIXTURE_DEF);
