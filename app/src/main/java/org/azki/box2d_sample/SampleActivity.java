@@ -32,9 +32,12 @@ import org.andengine.extension.physics.box2d.util.constants.PhysicsConstants;
 import org.andengine.input.sensor.acceleration.AccelerationData;
 import org.andengine.input.sensor.acceleration.IAccelerationListener;
 import org.andengine.input.touch.TouchEvent;
+import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
+import org.andengine.opengl.texture.bitmap.AssetBitmapTexture;
+import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
@@ -51,7 +54,6 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     // ===========================================================
     private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
 
-    private BitmapTextureAtlas mBitmapTextureAtlas;
     private TiledTextureRegion mBoxFaceTextureRegion;
     private TiledTextureRegion mCircleFaceTextureRegion;
     private TiledTextureRegion mTriangleFaceTextureRegion;
@@ -86,17 +88,27 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     public void onCreateResources() throws IOException {
         BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
 
-        this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 64, 128, TextureOptions.BILINEAR);
-        this.mBoxFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_box_tiled.png", 0, 0, 2, 1); // 64x32
-        this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_circle_tiled.png", 0, 32, 2, 1); // 64x32
-        this.mTriangleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_triangle_tiled.png", 0, 64, 2, 1); // 64x32
-        this.mHexagonFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_hexagon_tiled.png", 0, 96, 2, 1); // 64x32
-        this.mBitmapTextureAtlas.load();
+        AssetBitmapTexture boxFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_box_tiled.png", TextureOptions.BILINEAR);
+        this.mBoxFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(boxFaceTexture, 2, 1);
+        boxFaceTexture.load();
+
+        AssetBitmapTexture circleFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_circle_tiled.png", TextureOptions.BILINEAR);
+        this.mCircleFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(circleFaceTexture, 2, 1);
+        circleFaceTexture.load();
+
+        AssetBitmapTexture triangleFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_triangle_tiled.png", TextureOptions.BILINEAR);
+        this.mTriangleFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(triangleFaceTexture, 2, 1);
+        triangleFaceTexture.load();
+
+        AssetBitmapTexture hexagonFaceTexture = new AssetBitmapTexture(this.getTextureManager(), this.getAssets(), "gfx/face_hexagon_tiled.png", TextureOptions.BILINEAR);
+        this.mHexagonFaceTextureRegion = TextureRegionFactory.extractTiledFromTexture(hexagonFaceTexture, 2, 1);
+        hexagonFaceTexture.load();
     }
 
     @Override
     public Scene onCreateScene() {
         this.mEngine.registerUpdateHandler(new FPSLogger());
+        this.mEngine.enableVibrator(this);
 
         this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
         this.mGroundBody = this.mPhysicsWorld.createBody(new BodyDef());
@@ -130,11 +142,6 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
     }
 
     @Override
-    public void onGameCreated() {
-        this.mEngine.enableVibrator(this);
-    }
-
-    @Override
     public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final ITouchArea pTouchArea, final float pTouchAreaLocalX, final float pTouchAreaLocalY) {
         if (pSceneTouchEvent.isActionDown()) {
             final IEntity entity = (IEntity) pTouchArea;
@@ -143,7 +150,7 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
 			 * instead of creating a second one.
 			 */
             if (this.mMouseJointActive == null) {
-                this.mEngine.vibrate(100);
+                this.mEngine.vibrate(20);
                 this.mMouseJointActive = this.createMouseJoint(entity, pTouchAreaLocalX, pTouchAreaLocalY);
             }
             return true;
