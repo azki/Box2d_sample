@@ -177,14 +177,18 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
                     }
                     return true;
                 case TouchEvent.ACTION_UP:
-                    if (this.mMouseJointActive != null) {
-                        this.mPhysicsWorld.destroyJoint(this.mMouseJointActive);
-                        this.mMouseJointActive = null;
-                    }
+                    stopMouseJoint();
                     return true;
             }
         }
         return false;
+    }
+
+    private void stopMouseJoint() {
+        if (this.mMouseJointActive != null) {
+            this.mPhysicsWorld.destroyJoint(this.mMouseJointActive);
+            this.mMouseJointActive = null;
+        }
     }
 
     @Override
@@ -213,6 +217,7 @@ public class SampleActivity extends SimpleBaseGameActivity implements IAccelerat
         super.onPauseGame();
 
         this.disableAccelerationSensor();
+        stopMouseJoint();
     }
 
     // ===========================================================
